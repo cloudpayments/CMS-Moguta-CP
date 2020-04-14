@@ -7,10 +7,11 @@
  * @subpackage Controller
  */
 class Controllers_Payment extends BaseController {
-
+    
   public $msg = "";
 
   function __construct() {
+      
     $this->msg = "";
     $paymentID = $_GET['id'];
     $paymentStatus = $_GET['pay'];
@@ -28,6 +29,9 @@ class Controllers_Payment extends BaseController {
       case 1: //webmoney
         $msg = $this->webmoney($paymentID, $paymentStatus);
         break;
+      case 2: //ЯндексДеньги    
+        $msg = $this->yandex($paymentID, $paymentStatus);
+        break;
       case 5: //robokassa
         $msg = $this->robokassa($paymentID, $paymentStatus);
         break;
@@ -36,9 +40,6 @@ class Controllers_Payment extends BaseController {
         break;
       case 8: //interkassa
         $msg = $this->interkassa($paymentID, $paymentStatus);
-        break;
-      case 2: //ЯндексДеньги    
-        $msg = $this->yandex($paymentID, $paymentStatus);
         break;
       case 9: //PayAnyWay
         $msg = $this->payanyway($paymentID, $paymentStatus);
@@ -77,6 +78,16 @@ class Controllers_Payment extends BaseController {
       case 24: //Новая Яндекс Касса
         $paymentStatus = $this->yandexKassaNew($paymentID);
         $msg = $this->msg;
+        break;
+      case 26: //Фри-касса
+        $paymentStatus = $this->freeKassa($paymentID, $paymentStatus);
+        $msg = $this->msg;
+        break;
+      case 27: //Мегакасса
+        $msg = $this->megaKassa($paymentID, $paymentStatus);
+        break;
+       case 28: //Qiwi API
+        $msg = $this->qiwiApi($paymentID, $paymentStatus);
         break;
 
       case 19: //PayPal
@@ -133,23 +144,22 @@ class Controllers_Payment extends BaseController {
    */
   public function webmoney($paymentID, $paymentStatus) {
     $order = new Models_Order();
-    
+
     if('success' == $paymentStatus) {
-  
-    if(empty($_POST['LMI_PAYMENT_NO'])) {
-      echo "ERR: НЕКОРРЕКТНЫЕ ДАННЫЕ ЗАКАЗА";
-        exit;
-    }
+      if(empty($_POST['LMI_PAYMENT_NO'])) {
+        echo "ERR: НЕКОРРЕКТНЫЕ ДАННЫЕ ЗАКАЗА";
+          exit;
+      }
     
-      $orderInfo = $order->getOrder(" id = " . DB::quote(intval($_POST['LMI_PAYMENT_NO']), 1));
+      $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($_POST['LMI_PAYMENT_NO']), 1));
       $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$_POST['LMI_PAYMENT_NO']]['number']; 
       $msg .= $this->msg;
-    } elseif('result' == $paymentStatus && $_POST) {      
+    } elseif('result' == $paymentStatus && count($_POST) > 1) {      
       $paymentAmount = trim($_POST['LMI_PAYMENT_AMOUNT']);
       //$paymentAmount = $paymentAmount*1;
       $paymentOrderId = trim($_POST['LMI_PAYMENT_NO']);
       if(!empty($paymentAmount) && !empty($paymentOrderId)) {
-        $orderInfo = $order->getOrder(" id = " . DB::quote(intval($paymentOrderId), 1) . " and summ+delivery_cost = " . DB::quote($paymentAmount, 1));
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($paymentOrderId), 1) . " and summ+delivery_cost = " . DB::quoteFloat($paymentAmount));
       }
 
       $paymentInfo = $order->getParamArray($paymentID);
@@ -217,8 +227,14 @@ class Controllers_Payment extends BaseController {
   public function paymaster($paymentID, $paymentStatus) {
     $order = new Models_Order();
     $msg = '';
+
+    if(empty($_POST['LMI_PAYMENT_NO'])) {
+      echo "ERR: НЕКОРРЕКТНЫЕ ДАННЫЕ ЗАКАЗА";
+      exit;
+    }
+
     if('success' == $paymentStatus) {
-      $orderInfo = $order->getOrder(" id = " . DB::quote(intval($_POST['LMI_PAYMENT_NO']), 1));
+      $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($_POST['LMI_PAYMENT_NO']), 1));
       $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$_POST['LMI_PAYMENT_NO']]['number']; 
       $msg .= $this->msg;
     } elseif('result' == $paymentStatus && $_POST) {
@@ -226,7 +242,7 @@ class Controllers_Payment extends BaseController {
       //$paymentAmount = $paymentAmount*1;
       $paymentOrderId = trim($_POST['LMI_PAYMENT_NO']);
       if(!empty($paymentAmount) && !empty($paymentOrderId)) {
-        $orderInfo = $order->getOrder(" id = " . DB::quote(intval($paymentOrderId), 1) . " and summ+delivery_cost = " . DB::quote($paymentAmount, 1));
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($paymentOrderId), 1) . " and summ+delivery_cost = " . DB::quoteFloat($paymentAmount));
       }
 
       $paymentInfo = $order->getParamArray($paymentID);
@@ -293,18 +309,18 @@ class Controllers_Payment extends BaseController {
     $msg = '';
     if('success' == $paymentStatus) {
       if(!empty($_POST['InvId'])) {
-        $orderInfo = $order->getOrder(" id = " . DB::quote(intval($_POST['InvId']), 1));
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($_POST['InvId']), 1));
         $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$_POST['InvId']]['number']; 
       } else {
         $msg = 'Не указан номер заказа!';
       }
       
       $msg .= $this->msg;
-    } elseif('result' == $paymentStatus && isset($_POST)) {    
+    } elseif('result' == $paymentStatus && count($_POST) > 1) {    
       $paymentAmount = trim($_POST['OutSum']);
       $paymentOrderId = trim($_POST['InvId']);
       if(!empty($paymentAmount) && !empty($paymentOrderId)) {
-        $orderInfo = $order->getOrder(" id = " . DB::quote(intval($paymentOrderId), 1) . " and summ+delivery_cost = " . DB::quote($paymentAmount, 1));
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($paymentOrderId), 1) . " and summ+delivery_cost = " . DB::quoteFloat($paymentAmount));
         $paymentInfo = $order->getParamArray($paymentID, $orderInfo['id'], $orderInfo['summ']+$orderInfo['delivery_cost']);
       } else {
         echo "ERR: НЕКОРРЕКТНЫЕ ДАННЫЕ ЗАКАЗА";
@@ -350,11 +366,14 @@ class Controllers_Payment extends BaseController {
     $order = new Models_Order();
     $msg = '';
     if('success' == $paymentStatus) {
-      $orderInfo = $order->getOrder(" id = " . DB::quote(intval($_GET['order']), 1));
-      $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$_GET['order']]['number']; 
+      if (!empty($_GET['order'])) {
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($_GET['order']), 1));
+        $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$_GET['order']]['number'];
+      } else {
+        $msg = 'Не указан номер заказа!';
+      }
       $msg .= $this->msg;
-    } elseif('result' == $paymentStatus && isset($_POST)) {
-      $i = file_get_contents('php://input');
+    } elseif('result' == $paymentStatus && $i = file_get_contents('php://input')) {
 
       $l = array('/<login>(.*)?<\/login>/', '/<password>(.*)?<\/password>/');
       $s = array('/<txn>(.*)?<\/txn>/', '/<status>(.*)?<\/status>/');
@@ -371,7 +390,7 @@ class Controllers_Payment extends BaseController {
 
 
       if(!empty($paymentOrderId)) {
-        $orderInfo = $order->getOrder(" id = " . DB::quote(intval($paymentOrderId), 1));
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($paymentOrderId), 1));
       } else {
         $orderInfo = NULL;
         echo "Ошибка обработки";
@@ -412,6 +431,8 @@ class Controllers_Payment extends BaseController {
       header('content-type: text/xml; charset=UTF-8');
       echo '<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="http://client.ishop.mw.ru/"><SOAP-ENV:Body><ns1:updateBillResponse><updateBillResult>' . $resultCode . '</updateBillResult></ns1:updateBillResponse></SOAP-ENV:Body></SOAP-ENV:Envelope>';
       exit;
+    } else {
+      $msg = 'Оплата не удалась';
     }
 
     return $msg;
@@ -427,15 +448,19 @@ class Controllers_Payment extends BaseController {
     $order = new Models_Order();
     $msg = '';
     if('success' == $paymentStatus) {
-      $orderInfo = $order->getOrder(" id = " . DB::quote(intval($_POST['ik_pm_no']), 1));
-      $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$_POST['ik_pm_no']]['number'];      
+      if (!empty($_POST['ik_pm_no'])) {
+      $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($_POST['ik_pm_no']), 1));
+      $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$_POST['ik_pm_no']]['number'];
+      } else {
+        $msg = 'Не указан номер заказа!';
+      }
       $msg .= $this->msg;
-    } elseif('result' == $paymentStatus && isset($_POST)) {
+    } elseif('result' == $paymentStatus && count($_POST) > 1) {
   
       $paymentAmount = trim($_POST['ik_am']);
       $paymentOrderId = trim($_POST['ik_pm_no']);
       if(!empty($paymentAmount) && !empty($paymentOrderId)) {
-        $orderInfo = $order->getOrder(" id = " . DB::quote(intval($paymentOrderId), 1) . " and summ+delivery_cost = " . DB::quote($paymentAmount, 1));
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($paymentOrderId), 1) . " and summ+delivery_cost = " . DB::quoteFloat($paymentAmount));
       }
       // предварительная проверка платежа
       if(empty($orderInfo)) {
@@ -475,6 +500,8 @@ class Controllers_Payment extends BaseController {
         echo "Подписи не совпадают!";
         exit;
       }
+    } else {
+      $msg = 'Оплата не удалась';
     }
     return $msg;
   }
@@ -490,8 +517,12 @@ class Controllers_Payment extends BaseController {
     $msg = '';
     if('success' == $paymentStatus) {
       $paymentOrderId = trim(URL::getQueryParametr('MNT_TRANSACTION_ID'));
-      $orderInfo = $order->getOrder(" id = " . DB::quote(intval($paymentOrderId), 1));
-      $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$paymentOrderId]['number'];
+      if (!empty($paymentOrderId)) {
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($paymentOrderId), 1));
+        $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$paymentOrderId]['number'];
+      } else {
+        $msg = 'Не указан номер заказа!';
+      }
       $msg .= $this->msg;
             
       $this->actionWhenPayment(
@@ -501,12 +532,12 @@ class Controllers_Payment extends BaseController {
           'paymentID' => $paymentID
         )
       );
-    } elseif('result' == $paymentStatus && isset($_POST)) {
+    } elseif('result' == $paymentStatus && count($_POST) > 1) {
       $paymentAmount = trim($_POST['MNT_AMOUNT']);
       $paymentOrderId = trim($_POST['MNT_TRANSACTION_ID']);
 
       if(!empty($paymentAmount) && !empty($paymentOrderId)) {
-        $orderInfo = $order->getOrder(" id = " . DB::quote(intval($paymentOrderId), 1) . " and summ+delivery_cost = " . DB::quote($paymentAmount, 1));
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($paymentOrderId), 1) . " and summ+delivery_cost = " . DB::quoteFloat($paymentAmount));
         $paymentInfo = $order->getParamArray($paymentID, $paymentOrderId, $orderInfo[$paymentOrderId]['summ'] + $orderInfo[$paymentOrderId]['delivery_cost']);
       } else {
         echo "FAIL";
@@ -577,6 +608,8 @@ class Controllers_Payment extends BaseController {
         
         exit;
       }
+    } else {
+      $msg = 'Оплата не удалась';
     }
     
     return $msg;
@@ -591,16 +624,20 @@ class Controllers_Payment extends BaseController {
   public function yandex($paymentID, $paymentStatus) {
     $order = new Models_Order();
     $msg = '';
-    if('success' == $paymentStatus) {      
-      $orderInfo = $order->getOrder(" id = " . DB::quote(intval($_POST['label']), 1));
-      $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$_POST['label']]['number'];
+    if('success' == $paymentStatus) {
+      if (!empty($_POST['label'])) {
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($_POST['label']), 1));
+        $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$_POST['label']]['number'];
+      } else {
+        $msg = 'Не указан номер заказа!';
+      }
       $msg .= $this->msg;
-    } elseif('result' == $paymentStatus && isset($_POST)) {     
+    } elseif('result' == $paymentStatus && count($_POST) > 2) {     
       $paymentAmount = trim($_POST['withdraw_amount']);
       $paymentOrderId = trim($_POST['label']);
       if(!empty($paymentAmount) && !empty($paymentOrderId)) {
-        $orderInfo = $order->getOrder(" id = " . DB::quote(intval($paymentOrderId), 1) . " and summ+delivery_cost = "
-          . DB::quote($paymentAmount, 1));
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($paymentOrderId), 1) . " and summ+delivery_cost = "
+          . DB::quoteFloat($paymentAmount));
       }
       // предварительная проверка платежа
       if(empty($orderInfo)) {
@@ -636,7 +673,10 @@ class Controllers_Payment extends BaseController {
         echo "1";
         exit;
       }
+    } else {
+      $msg = 'Оплата не удалась';
     }
+
     return $msg;
   }
 
@@ -650,6 +690,11 @@ class Controllers_Payment extends BaseController {
     $action = URL::getQueryParametr('action');
     $orderNumber = URL::getQueryParametr('orderNumber');
     $orderId = URL::getQueryParametr('orderMId');
+
+    if (empty($orderNumber)) {
+      echo 'Не указан номер заказа!';
+      exit();
+    }
     
     if($paymentStatus == 'success') {
       //$orderInfo = $order->getOrder(" number = " . DB::quote($orderNumber));
@@ -684,7 +729,7 @@ class Controllers_Payment extends BaseController {
     $responseXml .= 'performedDatetime="'.date('c').'" ';
     
     if(!empty($orderSumAmount) && !empty($orderNumber) && !empty($orderId)) {
-      $orderInfo = $order->getOrder(" number = " . DB::quote($orderNumber) . " and summ+delivery_cost = " . DB::quote($orderSumAmount, 1));
+      $orderInfo = $order->getOrder(" number = " . DB::quote($orderNumber) . " and summ+delivery_cost = " . DB::quoteFloat($orderSumAmount));
     } else {
       $error = true;
       $responseXml .= 'code="200"
@@ -777,8 +822,8 @@ class Controllers_Payment extends BaseController {
 
         // проверяем имеется ли в базе заказ с такими параметрами
         if(!empty($paymentAmount) && !empty($paymentOrderId)) {
-          $orderInfo = $order->getOrder(" id = " . DB::quote(intval($paymentOrderId), 1) . " and summ+delivery_cost = "
-            . DB::quote($paymentAmount, 1));
+          $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($paymentOrderId), 1) . " and summ+delivery_cost = "
+            . DB::quoteFloat($paymentAmount));
         }
 
         // если заказа с таким номером и стоимостью нет, то возвращаем ошибку
@@ -800,9 +845,9 @@ class Controllers_Payment extends BaseController {
         )
         );
       }
-          $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$paymentOrderId]['number'];
-          $msg .= $this->msg;
-        } else {
+      $msg = 'Вы успешно оплатили заказ №' . $orderInfo[$paymentOrderId]['number'];
+      $msg .= $this->msg;
+    } else {
       $msg = $obj->actionCodeDescription;
     }
     
@@ -812,7 +857,7 @@ class Controllers_Payment extends BaseController {
           $paymentAmount = trim($_POST['amount']);
           $paymentOrderId = trim($_POST['orderNumber']);
           if(!empty($paymentAmount) && !empty($paymentOrderId)) {
-            $orderInfo = $order->getOrder(" id = " . DB::quote(intval($paymentOrderId), 1) . " and summ+delivery_cost = " . DB::quote($paymentAmount, 1));
+            $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($paymentOrderId), 1) . " and summ+delivery_cost = " . DB::quoteFloat($paymentAmount));
           }
           // предварительная проверка платежа
           if(empty($orderInfo)) {
@@ -859,14 +904,18 @@ class Controllers_Payment extends BaseController {
    * @param string $paymentStatus статус платежа
    * @return string
    */
-  private function liqpay($paymentID, $paymentStatus) { 
-    $data = json_decode(base64_decode($_POST['data']));
-    $orderId = URL::getQueryParametr('order_id'); 
+  private function liqpay($paymentID, $paymentStatus) {
+    if (!empty($_POST['data'])) {
+      $data = json_decode(base64_decode($_POST['data']));
+      $orderId = URL::getQueryParametr('order_id');
+    } else {
+      $orderId = 0;
+    }
 
     if(intval($orderId) > 0) {
       $orderId = intval($orderId);
       $order = new Models_Order(); 
-      $orderInfo = $order->getOrder(" id = " . DB::quote($orderId, 1));
+      $orderInfo = $order->getOrder(" id = " . DB::quoteInt($orderId, 1));
       
       if(!empty($orderInfo)) {
         if(in_array($orderInfo[$orderId]['status_id'], array(2,5))) {
@@ -889,10 +938,10 @@ class Controllers_Payment extends BaseController {
       return $msg;
     }    
     
-    if('result' == $paymentStatus && isset($_POST)) {
+    if('result' == $paymentStatus && count($_POST) > 1) {
       
       if(empty($_POST['data']) || empty($_POST['signature'])) {
-        $msg = "Не верный ответа от сервиса оплаты";
+        $msg = "Неверный ответа от сервиса оплаты";
         return $msg;
       }
       
@@ -914,10 +963,10 @@ class Controllers_Payment extends BaseController {
       $order = new Models_Order();              
       $received_public_key = $data->public_key;
       $paymentOrderId = $data->order_id;
-      $orderInfo = $order->getOrder(" id = " . DB::quote(intval($paymentOrderId), 1));
+      $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($paymentOrderId), 1));
       
       if(empty($orderInfo)) {
-        $msg = 'Заказа, с указанным идентификатором не существует с системе';
+        $msg = 'Заказа, с указанным идентификатором не существует в системе';
         return $msg;
       }
       
@@ -960,7 +1009,7 @@ class Controllers_Payment extends BaseController {
   public function privat24($paymentID, $paymentStatus) {
     $order = new Models_Order();
     
-    if('result' == $paymentStatus && isset($_POST)) {
+    if('result' == $paymentStatus && !empty($_POST['payment'])) {
       $payment = $_POST['payment'];
 
       if($payment) {
@@ -997,7 +1046,7 @@ class Controllers_Payment extends BaseController {
         }
 
         if(!empty($paymentAmount) && !empty($paymentOrderId)) {
-          $orderInfo = $order->getOrder(" id = " . DB::quote(intval($paymentOrderId), 1));
+          $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($paymentOrderId), 1));
           $paymentInfo = $order->getParamArray($paymentID, $paymentOrderId, $orderInfo[$paymentOrderId]['summ']);
         } else {
           $msg = "ERR: НЕКОРРЕКТНЫЕ ДАННЫЕ ЗАКАЗА";
@@ -1064,8 +1113,8 @@ class Controllers_Payment extends BaseController {
         $paymentOrderId = trim($_POST['orderNumber']);
 
         if(!empty($paymentAmount) && !empty($paymentOrderId)) {
-          $orderInfo = $order->getOrder(" id = " . DB::quote($paymentOrderId, 1) 
-              . " and ROUND(summ+delivery_cost) = " . DB::quote($paymentAmount, 1));
+          $orderInfo = $order->getOrder(" id = " . DB::quoteInt($paymentOrderId, 1)
+              . " and ROUND(summ+delivery_cost, 2) = " . DB::quoteFloat($paymentAmount));
         }
         // предварительная проверка платежа
         if(empty($orderInfo)) {
@@ -1094,7 +1143,7 @@ class Controllers_Payment extends BaseController {
               FROM `".PREFIX."product` p 
               LEFT JOIN `".PREFIX."category` c 
               ON p.`cat_id` = c.`id`
-              WHERE p.`id` IN (".DB::quoteIn($ids).")");
+              WHERE p.`id` IN (".DB::quoteIN($ids).")");
           while ($row = DB::fetchArray($res)) {
             if ($row['produnit']) {
               $units[$row['id']] = $row['produnit'];
@@ -1196,8 +1245,8 @@ class Controllers_Payment extends BaseController {
 
           // проверяем имеется ли в базе заказ с такими параметрами
           if(!empty($paymentAmount) && !empty($paymentOrderId)) {
-            $orderInfo = $order->getOrder(" id = " . DB::quote($paymentOrderId, 1) 
-                . " and summ+delivery_cost = " . DB::quote($paymentAmount, 1));
+            $orderInfo = $order->getOrder(" id = " . DB::quoteInt($paymentOrderId, 1)
+                . " and summ+delivery_cost = " . DB::quoteFloat($paymentAmount));
           }
 
           // если заказа с таким номером и стоимостью нет, то возвращаем ошибку
@@ -1239,11 +1288,16 @@ class Controllers_Payment extends BaseController {
   public function tinkoff($paymentID, $paymentStatus) {
     $orderId = explode('-', URL::get("OrderId"));
     $orderId = $orderId[0];
+
+    if (empty($orderId)) {
+      echo 'Не указан номер заказа!';
+      exit();
+    }
     
     $order = new Models_Order();
     $paymentInfo = $order->getParamArray($paymentID, null, null);
     if('result' == $paymentStatus) {
-      $orderInfo = $order->getOrder(" id = ".DB::quote($orderId, 1));
+      $orderInfo = $order->getOrder(" id = ".DB::quoteInt($orderId, 1));
       if($orderInfo[$orderId]['status_id'] != 2 && $orderInfo[$orderId]['status_id'] != 4 && $orderInfo[$orderId]['status_id'] != 5) {
         include_once CORE_LIB.'TinkoffMerchantAPI.php';
         $api = new TinkoffMerchantAPI(
@@ -1410,9 +1464,7 @@ class Controllers_Payment extends BaseController {
         $msg = 'fail';
         $this->msg = 'Оплата не удалась';
       }
-    }
-
-    if($paymentType == 'ipn') {
+    } elseif($paymentType == 'ipn') {
 
       $postdata = $_POST;
 
@@ -1467,7 +1519,7 @@ class Controllers_Payment extends BaseController {
 
           if(strpos($row['comment'], 'Адрес доставки PayPal:') === false) {
             $address = $row['comment'].$address;
-            DB::query('UPDATE `'.PREFIX.'order` SET `comment` = '.DB::quote($address).' WHERE id = '.DB::quoteInt($orderid, true));
+            DB::query('UPDATE `'.PREFIX.'order` SET `comment` = '.DB::quote($address).' WHERE id = '.DB::quoteInt($orderid));
           }
 
           if($status == 0) {
@@ -1506,6 +1558,8 @@ class Controllers_Payment extends BaseController {
         $msg = 'fail'; 
         // return 'Проверка оплаты не удалась';
       }
+    } else {
+      $this->msg = 'Оплата не удалась';
     }
     return $msg;
   }
@@ -1617,14 +1671,14 @@ class Controllers_Payment extends BaseController {
     if('success' == $paymentStatus) {
       
       if(!empty($_POST['clientid'])) {
-        $orderInfo = $order->getOrder(" id = " . DB::quote(intval($_POST['clientid']), 1));
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($_POST['clientid']), 1));
         $msg = 'Вы успешно оплатили заказ № ' . $orderInfo[$_POST['clientid']]['number'].'. Спасибо! Ожидайте звонка менеджера.'; 
       } else {
         $msg = 'Вы успешно оплатили заказ. Спасибо! Ожидайте звонка менеджера.';
       }  
       $msg .= $this->msg;
       
-    } elseif('result' == $paymentStatus) {
+    } elseif('result' == $paymentStatus && count($_POST) > 1) {
       
       $id = $_POST['id'];
       $paymentAmount = $_POST['sum'];
@@ -1634,7 +1688,7 @@ class Controllers_Payment extends BaseController {
         
       //Проверка существование заказа и подлинности платежа
       if(!empty($paymentAmount) && $paymentOrderId > 0) {
-        $orderInfo = $order->getOrder(" id = " . DB::quote($paymentOrderId, 1) . " and summ+delivery_cost = " . DB::quote($paymentAmount, 1));
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt($paymentOrderId, 1) . " and summ+delivery_cost = " . DB::quoteFloat($paymentAmount));
       }
 
       $paymentInfo = $order->getParamArray($paymentID);
@@ -1677,7 +1731,13 @@ class Controllers_Payment extends BaseController {
    * @return string
    */
   public function cloudpayments($paymentID, $paymentStatus) {
+  
     $orderNumber = URL::getQueryParametr('orderNumber');
+
+ //   if (empty($orderNumber)) {
+ //     echo 'Оплата не удалась';
+ //     exit();
+ //   }
 
     // Редирект из виджета
     if($paymentStatus == 'success') {
@@ -1724,7 +1784,7 @@ class Controllers_Payment extends BaseController {
         }
       }
       if(!empty($orderId)) {
-        $orderInfo = $order->getOrder(" id = " . DB::quote($orderId, 1));
+        $orderInfo = $order->getOrder(" id = " . DB::quoteInt($orderId, 1));
         $orderInfo = current($orderInfo);
       } else {
         $orderNumber = isset($_POST['InvoiceId']) ? $_POST['InvoiceId'] : '';
@@ -1802,9 +1862,14 @@ class Controllers_Payment extends BaseController {
     $paymentStatus = $json['object']['status'];
     $orderId = $json['object']['metadata']['orderId'];
 
+    if (empty($orderId)) {
+      echo 'Оплата не удалась';
+      exit();
+    }
+
     
     $order = new Models_Order();
-    $orderNumber = $order->getOrder(' id = '.DB::quote(intval($orderId), true));
+    $orderNumber = $order->getOrder(' id = '.DB::quoteInt(intval($orderId), true));
     
     if($paymentStatus == 'succeeded' || $paymentStatus == 'waiting_for_capture') {
       //$orderInfo = $order->getOrder(" number = " . DB::quote($orderNumber));
@@ -1829,7 +1894,229 @@ class Controllers_Payment extends BaseController {
     }  else {  
       //Раскоментировать, если будут проблемы
       //MG::loger($data, 'new', 'yandex');
+      $this->msg = 'Оплата не удалась';
     }
     return $paymentStatus;
+  }
+
+  /**
+   * Проверка платежа через FreeKassa.
+   * @param int $paymentID ID способа оплаты
+   * @param string $paymentStatus статус платежа
+   */
+  public function freeKassa($paymentID, $paymentStatus) {
+    if('success' == $paymentStatus) {
+      
+      $msg = 'Вы успешно оплатили заказ. Спасибо!';
+      
+      $msg .= $this->msg;
+      
+    } elseif('fail' == $paymentStatus) {
+      $msg = 'Не удалось оплатить заказ!';
+      
+      $msg .= $this->msg;
+    } elseif('result' == $paymentStatus && !empty($_REQUEST['MERCHANT_ORDER_ID'])) {
+      $orderAmount = $_REQUEST['AMOUNT']; //Стоимость заказа
+      $orderId = $_REQUEST['MERCHANT_ORDER_ID']; //ID заказа
+
+      if(empty($orderId)) {
+        echo 'Оплата не удалась';
+        exit();
+      }
+
+      //Получаем настройки оплаты
+      $order = new Models_Order();
+      $paymentInfo = $order->getParamArray($paymentID, null, null);
+
+      //Получаем ID магазина и второе секретное слово
+      $merchant_id = $paymentInfo[1]['value'];
+      $merchant_secret = $paymentInfo[3]['value'];
+
+      //Собираем подпись для проверки
+      $sign = md5($merchant_id.':'.$orderAmount.':'.$merchant_secret.':'.$orderId);
+
+      //Проверяем собранную подпись с пришедшей
+      if ($sign != $_REQUEST['SIGN']) {
+        //Если не совпало, то спамим в логер и прерываем выполнение
+        MG::loger('Error pay free-kassa:');
+        MG::loger($_REQUEST);
+        die('wrong sign');
+      }
+
+      //Если подписи равны, то ищем заказ и помечаем его оплаченым
+      $orderInfo = $order->getOrder(" id = " . DB::quoteInt($orderId));
+      if($orderInfo[$orderId]['status_id']!=2 && $orderInfo[$orderId]['status_id']!=4 && $orderInfo[$orderId]['status_id']!=5) {
+        $this->actionWhenPayment(
+          array(
+            'paymentOrderId' => $orderId,
+            'paymentAmount' => $orderAmount,
+            'paymentID' => $paymentID
+            )
+          );
+      }
+
+
+      echo 'YES'; //Возвращаем 'YES' по документации FREE-KASSA
+      exit();
+    }
+  }
+
+  /**
+   * Проверка платежа через Мегакасса.
+   * @param int $paymentID ID способа оплаты
+   * @param string $paymentStatus статус платежа
+   */
+  public function megaKassa($paymentID, $paymentStatus){
+    if ($paymentStatus == 'success') {
+
+      $msg = 'Вы успешно оплатили заказ. Спасибо!';
+
+      $msg .= $this->msg;
+
+    } elseif ($paymentStatus == 'fail') {
+      $msg = 'Не удалось оплатить заказ!';
+
+      $msg .= $this->msg;
+    } elseif ($paymentStatus == 'result') {
+
+      //Получаем настройки оплаты
+      $order = new Models_Order();
+      $paymentInfo = $order->getParamArray(27, null, null);
+      $secretKey = $paymentInfo[1]['value'];
+
+      $orderId = $_REQUEST['mg_order_id']; //ID заказа
+      $orderAmount = $_REQUEST['amount']; //Стоимость заказа
+
+      // проверка IP-адреса
+      $ipChecked = false;
+
+      foreach (array('HTTP_X_CLUSTER_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED', 'HTTP_FORWARDED_FOR', 'HTTP_FORWARDED', 'HTTP_CLIENT_IP', 'REMOTE_ADDR') as $param) {
+        if (!empty($_SERVER[$param]) && $_SERVER[$param] === '5.196.121.217') {
+          $ipChecked = true;
+          break;
+}
+      }
+      if (!$ipChecked) {
+        die('error');
+      }
+
+      // проверка на наличие обязательных полей
+      // поля $payment_time и $debug могут дать true для empty() поэтому их нет в проверке
+      foreach (array('uid', 'amount', 'amount_shop', 'amount_client', 'currency', 'order_id', 'payment_method_title', 'creation_time', 'client_email', 'status', 'signature') as $field) {
+        if (empty($_REQUEST[$field])) {
+          die('error');
+        }
+      }
+
+      // нормализация данных
+      $uid = (int)$_REQUEST["uid"];
+      $amount = (double)$_REQUEST["amount"];
+      $amountShop = (double)$_REQUEST["amount_shop"];
+      $amountClient = (double)$_REQUEST["amount_client"];
+      $currency = $_REQUEST["currency"];
+      $orderID = $_REQUEST["order_id"];
+      $paymentMethodID = (int)$_REQUEST["payment_method_id"];
+      $paymentMethodTitle = $_REQUEST["payment_method_title"];
+      $creationTime = $_REQUEST["creation_time"];
+      $paymentTime = $_REQUEST["payment_time"];
+      $clientEmail = $_REQUEST["client_email"];
+      $status = $_REQUEST["status"];
+      $debug = (!empty($_REQUEST["debug"])) ? '1' : '0';
+      $signature = $_REQUEST["signature"];
+
+      // проверка валюты
+      if (!in_array($currency, array('RUB', 'USD', 'EUR'), true)) {
+        die('error');
+      }
+
+      // проверка статуса платежа
+      if (!in_array($status, array('success', 'fail'), true)) {
+        die('error');
+      }
+
+      // проверка формата сигнатуры
+      if (!preg_match('/^[0-9a-f]{32}$/', $signature)) {
+        die('error');
+      }
+
+      // проверка значения сигнатуры
+      $signature_calc = md5(join(':', array($uid, $amount, $amountShop, $amountClient, $currency, $orderID, $paymentMethodID, $paymentMethodTitle, $creationTime, $paymentTime, $clientEmail, $status, $debug, $secretKey)));
+      if ($signature_calc !== $signature) {
+        die('error');
+      }
+
+      //Если подписи равны, то ищем заказ и помечаем его оплаченным
+      $orderInfo = $order->getOrder(" id = " . DB::quoteInt($orderId));
+      if($orderInfo[$orderId]['status_id']!=2 && $orderInfo[$orderId]['status_id']!=4 && $orderInfo[$orderId]['status_id']!=5 && $_REQUEST['status'] == 'success') {
+        $this->actionWhenPayment(
+          array(
+            'paymentOrderId' => $orderId,
+            'paymentAmount' => $orderAmount,
+            'paymentID' => $paymentID
+          )
+        );
+      }
+      echo('ok');
+      exit();
+    }
+    return $msq;
+  }
+
+  /**
+  * Проверка платежа через Qiwi API.
+  * @param int $paymentID ID способа оплаты
+  * @param string $paymentStatus статус платежа
+  */
+  public function qiwiApi($paymentID, $paymentStatus){
+  //Получаем настройки оплаты
+  $order = new Models_Order();
+  $paymentInfo = $order->getParamArray(28, null, null);
+  $secretKey = $paymentInfo[1]['value'];
+  $orderIDqiwi = $_SESSION['qiwiApi']['orderID'];
+
+  $auth = 'Bearer '. $secretKey;
+  $url = 'https://api.qiwi.com/partner/bill/v1/bills/'.$orderIDqiwi;
+  $curl = curl_init($url);
+  curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($curl, CURLOPT_HTTPHEADER, array("Accept: application/json", "Content-Type: application/json", "Authorization: $auth"));
+
+  $response = curl_exec($curl);
+  $code = curl_getinfo($curl,CURLINFO_HTTP_CODE);
+  curl_close($curl);
+
+  $response = json_decode($response, true);
+  $status = $response['status']['value'];
+  if ($status == 'PAID') {
+    $orderID = preg_replace('/-.*/is', '',$response['billId']);
+    $orderInfo = $order->getOrder(" id = " . DB::quoteInt(intval($orderID), 1) . " and summ+delivery_cost = " . DB::quoteFloat($response['amount']['value']));
+
+    if(empty($orderInfo)) {
+          $msg = 'ERR: Заказ был изменен! Была произведена оплата '.$response['amount']['value'].' '.$response['amount']['currency'].'  по некорректному счету!';
+          $msg .= $this->msg;
+        }
+    else{
+    $msg = 'Вы успешно оплатили заказ. Спасибо!';
+    $msg .= $this->msg;
+      
+    // Находим заказ и помечаем его оплаченным
+    if ($response['billId'] == $orderIDqiwi) {
+      $orderInfo = $order->getOrder(" id = " . DB::quoteInt($orderID));
+      if($orderInfo[$orderID]['status_id']!=2 && $orderInfo[$orderID]['status_id']!=4 && $orderInfo[$orderID]['status_id']!=5) {
+        $this->actionWhenPayment(
+          array(
+            'paymentOrderId' => $orderID,
+            'paymentAmount' => $response['amount']['value'],
+            'paymentID' => $paymentID
+          )
+        );
+       }
+      }
+    }
+  } else {
+  $msg = 'Возникла ошибка в оплате заказа.';
+  $msg .= $this->msg;
+  }
+
+  return $msg;
   }
 }
