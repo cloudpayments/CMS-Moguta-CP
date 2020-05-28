@@ -1819,7 +1819,16 @@ class Controllers_Payment extends BaseController {
             )
           );
         }
-        elseif(in_array($action, array('fail', 'refund', 'cancel'))) {
+        elseif(in_array($action, array('fail', 'cancel'))) {
+          $order = new Models_Order();
+          if(method_exists($order, 'updateOrder')) {
+            $order->updateOrder(array(
+              'id' => $orderId,
+              'status_id' => 0
+            ), true);
+          }
+        }
+        elseif(in_array($action, array('refund'))) {
           $order = new Models_Order();
           if(method_exists($order, 'updateOrder')) {
             $order->updateOrder(array(
